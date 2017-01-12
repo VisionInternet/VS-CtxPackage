@@ -1,0 +1,118 @@
+﻿<#@ template debug="false" hostSpecific="true" #>
+<#@ output extension=".cs" #>
+<#@ Assembly Name="System.Core.dll" #>
+<#@ Assembly Name="System.Xml.dll" #>
+<#@ Assembly Name="System.Windows.Forms.dll" #>
+<#@ import namespace="System" #>
+<#@ import namespace="System.IO" #>
+<#@ import namespace="System.Diagnostics" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Xml" #>
+<#@ import namespace="System.Collections" #>
+<#@ import namespace="System.Collections.Generic" #> 
+<#
+   // insert your template code here the tempalte code will be syntaxhighlighted 
+   // and you will have intellisense for all namespaces in the full edition
+   var namespaceStr = "$namespace$";
+   namespaceStr = "Vision.Cms.Mvc";
+   var inputDataFilePath =@"$inputDataFilename$";
+   var inputDataFileName = inputDataFilePath.Substring(inputDataFilePath.LastIndexOf('\\')+1);
+
+   var partialClassName="ServicesManager";
+   
+#>
+using Vision.Cms.Common;
+namespace <#= namespaceStr #>
+{
+	  public static class <#=partialClassName#>_<#=Helper.FormatPropertyName(inputDataFileName)#>
+	  {<# 
+	      var specailLetter ="#";
+		  var leftLetter ="<";
+		  var rightLetter =">";
+		  if(File.Exists(inputDataFilePath))
+		  {
+			  var xmlDoc = new XmlDocument();
+			  xmlDoc.Load(inputDataFilePath);
+	
+			var nsmgr = new XmlNamespaceManager(xmlDoc.NameTable); 
+			nsmgr.AddNamespace("bk", "http://www.springframework.net");
+			nsmgr.AddNamespace("lazy", "http://www.visioninternet.com/schema/Spring/lazy");
+
+			  foreach(XmlNode node in xmlDoc.DocumentElement.SelectNodes("descendant::bk:object",nsmgr ))
+			  {
+					  var idAttr = node.Attributes["id"];
+					  var nameAttr = node.Attributes["name"];
+					  var name = nameAttr !=null?nameAttr.Value:(idAttr!=null ? idAttr.Value:null);
+ 					 var typeAttr  = node.Attributes["type"];
+                      if (!string.IsNullOrEmpty(name) && typeAttr!=null)
+                      { 
+					  var typeFullName = typeAttr.Value; 
+					  var typeName = string.Empty;
+                                                                                  if(typeFullName.Last()!='>'){
+                                                                                  	typeName = typeFullName.Substring(0,typeFullName.LastIndexOf(','));
+					  }else{
+						typeName = typeFullName;
+					 }
+					 var cSharpPropertyName = Helper.FormatPropertyName(name);
+					 var scopeAttr = node.Attributes["scope"];
+					 var scope = scopeAttr ==null?"request":scopeAttr.Value;
+ 					 scope = scope[0].ToString().ToUpper()+scope.Substring(1);
+					  #>
+
+            <#=specailLetter#>region <#=cSharpPropertyName#>
+			<#if(scope=="Application"){#>private static <#=typeName#> _<#=cSharpPropertyName#> = null;
+			public static <#=typeName#> Get<#=cSharpPropertyName#>(this ServicesManager servicesManager)
+			{
+				if (_<#=cSharpPropertyName#> == null)
+				{
+					_<#=cSharpPropertyName#> = ServicesManager.GetCachedObject<#=leftLetter#><#=typeName#><#=rightLetter#>("<#=name#>",CacheType.<#=scope#>);
+				}
+				return _<#=cSharpPropertyName#>;
+				
+			}
+			<#}else{#>public static <#=typeName#> Get<#=cSharpPropertyName#>(this ServicesManager servicesManager)
+			{
+				return ServicesManager.GetCachedObject<#=leftLetter#><#=typeName#><#=rightLetter#>("<#=name#>",CacheType.<#=scope#>);
+				
+			}
+			<#}#><#=specailLetter#>endregion
+					  <#
+					  }
+			  }
+		  }
+	      #>
+
+	  }
+}
+<#+ 
+   class Helper
+   {
+	   static readonly Dictionary<string,string> toBeReplacedDictionary = new Dictionary<string,string>();
+	   static Helper()
+	   {
+			toBeReplacedDictionary.Add(".","_");	
+			toBeReplacedDictionary.Add(" ","_");	    
+	   }
+        
+	   public static string FormatPropertyName(string resourceKey)
+	   { 
+			if(!string.IsNullOrEmpty(resourceKey))
+			{
+				var result = resourceKey;
+				var firstLetter = result.ToLower()[0];
+				if(firstLetter<'a' || firstLetter>'z')
+				{
+				    result = "_" + result;
+				}
+				foreach(var key in toBeReplacedDictionary.Keys)
+				{
+					result = result.Replace(key, toBeReplacedDictionary[key]);
+				}
+				result = result[0].ToString().ToUpper()+result.Substring(1);
+				return result;
+			}
+			return string.Empty;
+	   }
+   
+   }
+#>

@@ -1,0 +1,1 @@
+﻿This Visual Studio Plugin is for Visual Studio 2012, 2013, 2015.

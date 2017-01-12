@@ -1,0 +1,114 @@
+﻿<#@ template debug="false" hostSpecific="true" #>
+<#@ output extension=".css" #>
+<#@ Assembly Name="System.Core.dll" #>
+<#@ Assembly Name="System.Xml.dll" #>
+<#@ Assembly Name="System.Windows.Forms.dll" #>
+<#@ Assembly Name="dotless.Core.dll" #>
+<#@ import namespace="System" #>
+<#@ import namespace="System.IO" #>
+<#@ import namespace="System.Diagnostics" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Xml" #>
+<#@ import namespace="System.Collections" #>
+<#@ import namespace="System.Collections.Generic" #> 
+<#@ import namespace="dotless.Core" #> 
+<#@ import namespace="dotless.Core.configuration" #> 
+<#@ import namespace="dotless.Core.Input" #>
+<#
+   // insert your template code here the tempalte code will be syntaxhighlighted 
+   // and you will have intellisense for all namespaces in the full edition
+
+   var inputDataFilePath =@"$inputDataFilename$";  
+   var projectFilePath =@"$projectFilePath$";  
+   var projectDirectory = Path.GetDirectoryName(projectFilePath);
+   
+#>
+<#=Helper.GenerateDotLess(inputDataFilePath,projectDirectory )#>
+<#+ 
+   class Helper
+   {
+	   static readonly ContainerFactory ContainerFactory = new AspNetContainerFactory();
+	   static readonly DotlessConfiguration DotlessConfiguration = new DotlessConfiguration();	   
+	   static readonly Dictionary<string,string> toBeReplacedDictionary = new Dictionary<string,string>();
+	   static Helper()
+	   {
+			toBeReplacedDictionary.Add(".","_");	
+			toBeReplacedDictionary.Add(" ","_");
+			DotlessConfiguration.MapPathsToWeb = false;   
+            DotlessConfiguration.DisableUrlRewriting = true;
+	   }
+
+	   public static string FormatPropertyName(string resourceKey)
+	   { 
+			if(!string.IsNullOrEmpty(resourceKey))
+			{
+				var result = resourceKey;
+				var firstLetter = result.ToLower()[0];
+				if(firstLetter<'a' || firstLetter>'z')
+				{
+				    result = "_" + result;
+				}
+				foreach(var key in toBeReplacedDictionary.Keys)
+				{
+					result = result.Replace(key, toBeReplacedDictionary[key]);
+				}
+				return result;
+			}
+			return string.Empty;
+	   }
+	   	   
+	   public static string GetFilePath(string currentFileFullName, string importedFileName, string projectFullPath="")
+	   {
+			var currentFileDirectory = Path.GetDirectoryName(currentFileFullName);
+            if(System.IO.File.Exists(importedFileName)){
+                return importedFileName;
+            }
+            if(importedFileName.StartsWith("~/")){
+                return System.IO.Path.Combine(projectFullPath, importedFileName.Replace("/", "\\").Substring(2));
+            }
+            else if(importedFileName.StartsWith("../")){
+                 var currentFileDirectoryInfo = new DirectoryInfo(currentFileDirectory);
+                var virtualPathPathSegments = importedFileName.Split(new char[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+                var currentDirectory = currentFileDirectoryInfo;
+                foreach (var segment in virtualPathPathSegments)
+                {
+                    if (segment.Equals(".."))
+                        currentDirectory = currentDirectory.Parent;
+                    else
+                    {
+                        currentDirectory = new DirectoryInfo(Path.Combine(currentDirectory.FullName, segment));
+                    }
+                }
+                return currentDirectory.FullName;
+            }
+            else if(importedFileName.StartsWith("/")){
+                return Path.Combine(currentFileDirectory,importedFileName.Replace("/","\\").Substring(1));
+            }else{
+                return Path.Combine(currentFileDirectory,importedFileName.Replace("/","\\"));
+            }
+	   }
+
+   	   public static string GenerateDotLess(string fileFullName, string projectDirectory )
+	   {
+                var fileFullPath = Path.GetDirectoryName(fileFullName);
+				var defaultEngine = new EngineFactory(DotlessConfiguration).GetEngine(ContainerFactory); 
+                var lessContent = File.ReadAllText(fileFullName);
+	            var matches = System.Text.RegularExpressions.Regex.Matches(lessContent,"(/\\*@import)(.*)?;\\*/");
+                foreach(System.Text.RegularExpressions.Match match in matches)
+                {
+                    if(match.Groups.Count>2)
+                    {
+                        var fileName = GetFilePath(fileFullName, match.Groups[2].Value.Trim(new Char[]{'"',' '}),projectDirectory);
+                        lessContent = lessContent.Replace(match.Value,string.Format(" @import \"{0}\"; ",fileName));
+                    }
+                }
+                var result = defaultEngine .TransformToCss(lessContent, fileFullName);
+				result = System.Text.RegularExpressions.Regex.Replace(result,"(?:/\\*[^;]*?\\*/)|(?:--[^;]*?$)", " ",System.Text.RegularExpressions.RegexOptions.Compiled| System.Text.RegularExpressions.RegexOptions.Multiline); 
+				//result = System.Text.RegularExpressions.Regex.Replace(result,"\r\n","\n");
+				//result = System.Text.RegularExpressions.Regex.Replace(result,"(\n[ ]?){2,}","\n");
+				result = System.Text.RegularExpressions.Regex.Replace(result,"(\n[ ]*){2,}","\n");
+				//result = System.Text.RegularExpressions.Regex.Replace(result,"[ ]+"," ");         
+				return result;
+	   }
+   }
+#>
