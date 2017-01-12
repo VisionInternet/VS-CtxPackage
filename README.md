@@ -1,7 +1,8 @@
 # VS-CtxPackage
 This is a plugin repository for Visual Studio 2012, 2013, 2015, which we use it to generate file by T4 template. 
 
-Why we need this
+Why we need this:
+
 T4 template is a very powerful functionality of Visual Studio, but we need to add the same T4 template file for each file if we want to use T4 template. This is not very convenient. 
 
 This plugin provides a basic infrastructure to map the T4 template with extension, so that we are able to use the same template for different files, and we don't need to add the template into Visual Studio project.
